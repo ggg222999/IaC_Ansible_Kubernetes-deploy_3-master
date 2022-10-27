@@ -1,0 +1,13 @@
+---
+#  - name: add all members hostname to all hosts
+#    include: deploy_hostfile.yml
+#
+#  - name: deploy keys to all members
+#    include: deploy_keys.yml
+#
+#  - name: deploy kubernetes
+#    include: kubernetes_cluster.yml
+
+  - name: deploy kubernetes
+    include: kubernetes_join_node.yml
+

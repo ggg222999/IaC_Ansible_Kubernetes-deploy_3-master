@@ -1,0 +1,65 @@
+---
+# Get cert key
+  - name: Get kubeadm-config.yaml
+    shell: "kubectl get cm kubeadm-config -n kube-system -o yaml | sed '/apiVersion: v1/,3d' | sed '/kind: ConfigMap/,$d'"
+    register: kubeadm_config
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Create kubeadm-config.yaml file
+    local_action: "copy content='{{ kubeadm_config }}' dest=/tmp/kubeadm-config.yaml"
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Get cert key
+    shell: "kubeadm init phase upload-certs --upload-certs --config /tmp/kubeadm-config.yaml"
+    register: cert_key
+    when: inventory_hostname in groups['k8smaster']
+
+  - debug:
+      msg: "{{ cert_key.stdout }}"
+    when: inventory_hostname in groups['k8smaster']
+
+  - debug:
+      msg: "{{ cert_key.stdout_lines[2] }}"
+    when: inventory_hostname in groups['k8smaster']
+
+
+# Create token for member/worker node to join cluster
+  - name: get join command
+    shell: kubeadm token create --print-join-command
+    register: join_command
+    when: inventory_hostname in groups['k8smaster']
+
+  - debug:
+      msg: "{{ join_command.stdout }}"
+    when: inventory_hostname in groups['k8smaster']
+
+# master meember join existing cluster
+  - name: Attach kubeadm join command to a file on Ansible control node
+    local_action: "copy content='{{ join_command.stdout_lines[0] }} --control-plane --certificate-key {{ cert_key.stdout_lines[2] }}' dest=master-join-command"
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Copy the master member join-command file created above to worker node
+    copy: src=master-join-command dest=/tmp/kubeadm-master-join.sh mode=0777
+    when: inventory_hostname in groups['k8smastermember']
+
+  - name: Join the member master to cluster
+    command: sh /tmp/kubeadm-master-join.sh
+    when: inventory_hostname in groups['k8smastermember']
+
+
+# Worker node join cluster
+  - name: Attach kubeadm join command to a file on Ansible control node
+    local_action: "copy content='{{ join_command.stdout_lines[0] }}' dest=worker-join-command"
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Copy the join-command file created above to worker node
+    copy: src=worker-join-command dest=/tmp/kubeadm-node-join.sh mode=0777
+    when: inventory_hostname in groups['k8sworker']
+
+  - name: Join the worker node to cluster
+    command: sh /tmp/kubeadm-node-join.sh
+    when: inventory_hostname in groups['k8sworker']
+
+#  - name: assign worker role to the new nodes
+#    shell: "kubectl label node k8sworker01 node-role.kubernetes.io/worker=worker"
+#    when: inventory_hostname in groups['k8smaster']

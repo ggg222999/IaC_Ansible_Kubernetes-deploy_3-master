@@ -1,0 +1,21 @@
+---
+
+  - name: Create non root usre
+    include: non_root_user.yml
+
+  - name: Create non root usre
+    include: deploy_key.yml
+
+  - name: add hostname
+    include: add_hostname.yml
+
+  - name: deploy kubernetes
+    include: kubernetes_install.yml
+
+# Use a role for cluster deploy
+#  - name: deploy kubernetes
+#    include: kubernetes_cluster.yml
+#
+#  - name: deploy kubernetes
+#    include: kubernetes_join_node.yml
+

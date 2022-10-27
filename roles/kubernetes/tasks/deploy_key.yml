@@ -1,0 +1,35 @@
+---
+  - name: Deploy public keys to authorized_keys
+    authorized_key:
+      user: root
+      state: present
+      key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa.pub') }}"
+
+  - name: Generate ssh keys
+    openssh_keypair:
+      path: '~/.ssh/id_rsa'
+      type: rsa
+      size: 4096
+      state: present
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Fetch the file from the k8smaster to ansible
+    fetch:
+      src: "~/.ssh/id_rsa.pub"
+      dest: "buffer/id_rsa.pub"
+      flat: yes
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Copy the file from master to target server
+    copy: 
+       src: buffer/id_rsa.pub
+       dest: /tmp/
+
+#  - name: Deploy public keys to authorized_keys
+#    authorized_key:
+#      user: root
+#      state: present
+#      key: buffer/id_rsa.pub
+
+  - name: deploy public keys
+    shell: cat /tmp/id_rsa.pub >> "/root/.ssh/authorized_keys"

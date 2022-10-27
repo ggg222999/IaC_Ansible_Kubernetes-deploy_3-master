@@ -1,0 +1,9 @@
+---
+  - name: add hostname
+    shell: echo "192.168.1.230	k8smaster01	k8smaster01.gor.net" >> /etc/hosts
+
+  - name: add hostname
+    shell: echo "192.168.1.231  k8sworker01	k8sworker01.gor.net" >> /etc/hosts
+
+  - name: add hostname
+    shell: echo "192.168.1.232  k8sworker02	k8sworker02.gor.net" >> /etc/hosts

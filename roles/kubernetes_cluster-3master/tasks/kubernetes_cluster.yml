@@ -1,0 +1,40 @@
+---
+  - name: Initialize the control plane with loadbalancer ip
+    shell: kubeadm init --control-plane-endpoint "k8smaster.gor.net:6443" --upload-certs > /home/kubeinit.log
+    register: kubeadm_init
+    when: inventory_hostname in groups['k8smaster']
+
+  - debug:
+      msg: "{{ kubeadm_init.stdout }}"
+    when: inventory_hostname in groups['k8smaster']
+# 1 master config
+#  - name: initialize the cluster
+#    shell: "kubeadm init --pod-network-cidr=10.244.0.0/16"
+#    when: inventory_hostname in groups['k8smaster']
+ 
+  - name: create .kube directory
+    become: yes
+    become_user: k8suser
+    file:
+      path: /home/k8suser/.kube
+      state: directory
+      mode: 0755
+    when: inventory_hostname in groups['k8smaster']
+ 
+  - name: copy admin.conf to user's kube config
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: /home/k8suser/.kube/config
+      remote_src: yes
+      owner: k8suser
+    when: inventory_hostname in groups['k8smaster']
+ 
+  - name: install Pod network
+    become: yes
+    become_user: k8suser
+    shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Pause for 2 minutes for Cluster to be Ready
+    pause:
+      minutes: 2

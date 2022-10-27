@@ -1,0 +1,125 @@
+---
+  - name: Remove swapfile from /etc/fstab
+    mount:
+      name: "{{ item }}"
+      fstype: swap
+      state: absent
+    with_items:
+      - swap
+      - none
+
+  - name: Disable swap
+    command: swapoff -a
+    when: ansible_swaptotal_mb > 0
+
+
+############## CentOS installation #################################
+  - name: Stop Firewalld
+    command: systemctl stop firewalld
+    when: ansible_distribution  == 'CentOS'
+
+  - name: Disable Firewalld
+    command: systemctl disable firewalld
+    when: ansible_distribution  == 'CentOS'
+
+  - name: replace line
+    lineinfile: 
+      path: /etc/selinux/config
+      regexp: '^SELINUX=enforcing' 
+      line: 'SELINUX=disabled;'
+      backrefs: yes
+    when: ansible_distribution  == 'CentOS'
+
+  - name: load kernel module
+    include: load_kernel_module.yml
+
+  - name: (Ubuntu) server reboot
+    reboot:
+    when: ansible_distribution  == 'CentOS'
+
+
+  - name: (Ubuntu) Wait 300 seconds for port 22 to become open
+    ansible.builtin.wait_for:
+      port: 22
+      delay: 10
+    when: ansible_distribution  == 'CentOS'
+
+
+  - name: add Kubernetes' YUM repository
+    yum_repository:
+      name: Kubernetes
+      description: Kubernetes YUM repository
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+      gpgcheck: yes
+    when: ansible_distribution  == 'CentOS'
+
+  - name: Install Kubernetes
+    yum: 
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+        - kubectl-1.23.3
+        - kubelet-1.23.3
+        - kubeadm-1.23.3
+    when: ansible_distribution  == 'CentOS'
+
+#  - name: Install Kubernetes
+#    yum:
+#      name: "{{ packages }}"
+#      state: present
+#      update_cache: yes
+#    vars:
+#      packages:
+#        - kubectl-1.23.3
+#    when: ansible_distribution  == 'CentOS'
+
+
+############## Ubuntu installation completed #################################
+  - name: install APT Transport HTTPS
+    apt:
+      name: apt-transport-https
+      state: present
+    when: ansible_distribution  == 'Ubuntu'
+
+  - name: add Kubernetes apt-key
+    apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
+    when: ansible_distribution  == 'Ubuntu'
+
+  - name: add Kubernetes' APT repository
+    apt_repository:
+      repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+      state: present
+      filename: 'kubernetes'
+    when: ansible_distribution  == 'Ubuntu'
+
+  - name: install kubelet
+    apt:
+      name: kubelet
+      state: present
+      update_cache: true
+    when: ansible_distribution  == 'Ubuntu'
+
+  - name: install kubeadm
+    apt:
+      name: kubeadm
+      state: present
+    when: ansible_distribution  == 'Ubuntu'
+
+  - name: install kubectl
+    apt:
+      name: kubectl
+      state: present
+    when: inventory_hostname in groups['k8smaster'] and ansible_distribution  == 'Ubuntu'
+
+# Restart Kubelet services
+  - name: Restart and enable kubelet services
+    service:
+      name: kubelet
+      daemon_reload: yes
+      enabled: yes
+      state: started

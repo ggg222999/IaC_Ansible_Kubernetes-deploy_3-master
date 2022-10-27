@@ -1,0 +1,43 @@
+---    
+  - name: creating 'k8suser' user
+    user: 
+      name: k8suser
+      append: yes
+      state: present 
+      createhome: yes 
+      shell: /bin/bash
+
+  - name: ensure ssh folder exist
+    file:
+      path: "/home/k8suser/.ssh"
+      state: directory
+      owner: k8suser
+      group: k8suser
+
+  - name: k8suser for passwordless sudo
+    lineinfile:
+      dest: /etc/sudoers
+      line: 'k8suser ALL=(ALL) NOPASSWD: ALL'
+      validate: 'visudo -cf %s'
+
+  - name: Generate ssh keys
+    openssh_keypair:
+      path: '/home/k8suser/.ssh/id_rsa'
+      type: rsa
+      size: 2048
+      state: present
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Fetch the file from the k8smaster to ansible
+    fetch:
+      src: "/home/k8suser/.ssh/id_rsa.pub"
+      dest: "buffer/id_rsa.pub"
+      flat: yes
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: authorized keys for the k8suser
+    authorized_key: 
+      user: k8suser 
+      key: "{{ lookup('file', 'buffer/id_rsa.pub') }}"
+      state: present
+      

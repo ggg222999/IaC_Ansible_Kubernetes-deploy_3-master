@@ -1,0 +1,28 @@
+---
+  - name: Fetch the file from the k8smaster to ansible
+    fetch:
+      src: "/home/k8suser/.ssh/id_rsa.pub"
+      dest: "buffer/id_rsa.pub"
+      flat: yes
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: authorized keys for the k8suser
+    authorized_key:
+      user: k8suser
+      key: "{{ lookup('file', 'buffer/id_rsa.pub') }}"
+      state: present
+
+  - name: Fetch the file from the k8smaster to ansible
+    fetch:
+      src: "/home/k8suser/.ssh/id_rsa"
+      dest: "buffer/id_rsa"
+      flat: yes
+    when: inventory_hostname in groups['k8smaster']
+
+  - name: Copy the ssh private key to all members
+    copy:
+      src: buffer/id_rsa
+      dest: "/home/k8suser/.ssh/id_rsa"
+      owner: k8suser
+      group: k8suser
+      mode: '0600'

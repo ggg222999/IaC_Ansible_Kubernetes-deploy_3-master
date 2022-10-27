@@ -1,0 +1,7 @@
+---
+- name: deploy key
+  hosts: targetserver
+  gather_facts: yes
+
+  roles: 
+    - kubernetes_cluster-3master
